@@ -1,0 +1,45 @@
+{
+  "name": "dsh-deepseek-billing",
+  "version": "0.1.12",
+  "description": "DeepSeek 峰谷计费插件（梁文峰/梁文谷）：实时判定高峰/闲时段并按官方价表计价当前会话（含子代理），挂载到 ui-beautify 插件面板。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-api-gateway",
+        "@deepseek-ai/dsh-typert-registry",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.7"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "web-ui",
+    "billing",
+    "peak-valley",
+    "plugin"
+  ],
+  "license": "MIT",
+  "files": [
+    "lib",
+    "README.md",
+    "LICENSE",
+    "cordis.patch.yml"
+  ]
+}
