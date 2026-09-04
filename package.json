@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepseek-billing",
-  "version": "0.1.17",
+  "version": "0.1.19",
   "description": "DeepSeek 峰谷计费插件（梁文峰/梁文谷）：实时判定高峰/闲时段并按官方价表计价当前会话（含子代理），挂载到 ui-beautify 插件面板。",
   "type": "module",
   "main": "lib/index.js",
@@ -11,21 +11,14 @@
   },
   "dsh": {
     "client": {
-      "platform": "web",
-      "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-connection",
-        "@deepseek-ai/dsh-api-gateway",
-        "@deepseek-ai/dsh-typert-registry",
-        "@deepseek-ai/dsh-client-ui-slots"
-      ]
+      "platform": "web"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.7"
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.2-rc.1"
   },
   "keywords": [
     "dsh",
