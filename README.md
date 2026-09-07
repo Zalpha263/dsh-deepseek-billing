@@ -10,6 +10,8 @@
 - **费用计费**：逐事件按官方价表计价（输入未命中 / 缓存命中 / 输出含推理），人民币默认、可切换美元（汇率在线刷新 + 手动 + 默认 7.16）；
 - **当前窗口**：当前会话 + 其子代理会话树（含已结束子代理，持久化日志聚合），Token 明细与总消耗；
 - **手动价格覆盖**：官方改价时在面板「价格配置」里改即可（localStorage 持久化，可一键恢复官方内置价表）；
+- **别名通道管理**：v0.1.20 起内置的代理别名（ECNU 等）可在「价格配置 → 别名通道」里**覆盖 / 添加 / 移除**（含移除内置行、恢复内置），映射立即生效并持久化，替代原先只能写死在内置表的行为；
+- **数据真源可见**：价表日期与"是否已手动覆盖"由宿主单一真源报告（`meta.priceAsOf` / `priceSource`），页脚如实显示「内置官方 <日期>（已手动覆盖）」；
 - **降级可用**：未安装 ui-beautify 时 console 提示等待 dock 服务，不影响其余插件。
 
 ## 安装
@@ -33,7 +35,8 @@ dsh plugin --profile web add github:Zalpha263/dsh-deepseek-billing#<完整40位c
 | 状态卡 | 倒计时 | 距下一换档 HH:MM:SS |
 | 费用卡 | 总额 | 本次窗口费用（人民币/美元切换） |
 | 明细卡 | Token 表 | 缓存命中 / 未命中 / 输出(含推理) / 推理 / 总消耗 |
-| 价格配置 | 表单 | 三个模型 × 三项闲时价，高峰自动 ×2，可恢复官方 |
+| 价格配置 | 表单 | 三个模型 × 三项闲时价（高峰价 = 闲时价 × `PEAK_MULTIPLIER`，单一真源），可恢复官方 |
+| 价格配置 | 别名通道 | 代理模型 → 官方模型映射：覆盖 / 添加 / 移除 / 恢复内置，持久化 |
 
 ## 计费规则（内置，2026-09-03）
 
@@ -52,12 +55,13 @@ dsh plugin --profile web add github:Zalpha263/dsh-deepseek-billing#<完整40位c
 
 ## 开发者
 
-- `lib/index.js`：Host 半区（`deepseekBilling` Remote 服务：summary / status / setPrices / setRate），引擎与 `dsh-deepseek-billing` 动态预览版同源；
+- `lib/index.js`：Host 半区（`deepseekBilling` Remote 服务：summary / status / setPrices / setRate / setAlias），引擎与 `dsh-deepseek-billing` 动态预览版同源；
 - `lib/client.js`：Client 半区（手写 `__ModuleLoader__.load` 格式，**纯 DOM** 构建 + dock 面板挂载 + localStorage 持久化；v0.1.6 起不再使用 React root 写宿主容器）；
-- 价格/规则常量在 `lib/index.js` 顶部，改完重启 DSH（Host 变更）或硬刷新（Client 变更）即可生效。
+- 价格/规则常量在 `lib/index.js` 顶部（`OFFICIAL` 谷时价 + `PEAK_MULTIPLIER` 峰值系数 + `PRICE_AS_OF` 数据日期，改价时只改这三处），改完重启 DSH（Host 变更）或硬刷新（Client 变更）即可生效。
 
 ## 版本历史（最新在前）
 
+- **v0.1.20**：数据真源与别名通道加固——① **覆盖率显示修复**：原始 `meta.priceSource` 恒为常量，客户端「（已手动覆盖）」分支永不触发；现由宿主按「是否存在手动覆盖」真实计算 `manual | official`，页脚如实显示覆盖状态；② **价表日期单一真源**：客户端不再硬编码「2026-09-03」，改读 `meta.priceAsOf`（配套 `PRICE_AS_OF` 常量，改价时仅需更新宿主常量）；③ **峰值系数单一真源**：官方价表去掉硬编码的峰值价二元组，只存谷时价，峰值统一按 `PEAK_MULTIPLIER`（当前 2）计算，与界面「高峰价 = 闲时价 × 2」宣示口径共用同一常数，消除双处漂移；④ **别名通道可配置化**：内置 ECNU 别名保留为默认，新增 `setAlias` 远程方法（覆盖 / 添加 / 移除 / 重置，含自环拒绝与别名级联解析），`summary` 返回 `meta.aliases` 合并视图；客户端「价格配置」新增别名通道区块（逐行保存 / 移除 / 删除、添加行、恢复内置），别名覆盖随 prices/rate 一同 localStorage 持久化并在启动时重灌；⑤ 主机 `aliased` 统计、模型明细标签统一走新解析路径（`resolveAlias`），行为与旧逻辑一致。
 - **v0.1.19**：修复历史/冷会话计费——① **增量折叠自愈**：`scanSession` 由"全量扫一次即永久栅栏"改为按游标增量、每次 poll/刷新核对到日志尾部（折叠对 (turn,step) 幂等，故与事件监听重叠安全），根除"只计开头、刷新没用、监听遗漏后永不再计"类问题；② **模型归因加固**：实测 `request/context` 每会话仅 1 条，现以最近一条 `request/header` 的 `header.config.model` 优先归因（`request/context` 兜底），多模型或压缩后缺上下文事件的会话也能正确计价；③ **会话身份显式化**：客户端恒传当前 `sessionId`（未打开会话为 null），主机不再静默聚合"最近活动会话"、返回 `empty` 占位，面板显示"等待会话…"——杜绝打开历史会话时面板聚合到别的会话；④ 新增 `summary(debug)` 诊断字段（rootOrigin/事件计数/归因模型/错误轨迹，控制台输出）。子代理计数、峰谷判定、别名通道、手动覆盖、汇率全部保留；用真实日志回归（1265 计价步 / 447.6M 命中 tokens，含"隐藏 request/context"与"增量+重扫"两组用例）通过。
 - **v0.1.18**：适配 DSH 0.1.2-rc.1 + 别名通道 + 审计加固——① **崩溃级修复**：v0.1.18 早期版本的 `offRow` 在模型无手动覆盖（常态）时对 `undefined` 访问 `ov[bucket]` 抛 TypeError，导致所有官方价计价路径崩溃、面板「加载失败」（已加 `ov === undefined` 守卫与五组回归用例）；② **别名通道**：ECNU 代理模型（`ecnu-max`/`ecnu-image`）按对应 DeepSeek 官方价计价，模型明细标注「经别名通道」；③ 会话事件读取改为 `session.snapshotEvents()`（0.1.2 的按需读取 API，旧 `session.events` 恒 undefined 导致历史会话账目为 0），无冷会话时回退持久化日志；④ 非 DeepSeek 模型明细（按模型名×次数）与「已按对应模型计价」提示；⑤ 删除死代码（`periodCny` 无人消费且语义错误、不可达的「防御补扫」分支、`cursor` 死状态）；`defaultRootId` 两段重复循环合并；⑥ 客户端硬化：token 格式化防 `undefined`、币种 localStorage 脏值校验、汇率回退 7.16（原 `||0` 会除零）；⑦ `dsh.client.inject` 幽灵条目清理、peer 升至 `^0.1.2-rc.1`。遗留：价格配置表单打开时显示官方默认价而非生效覆盖值（既有行为）；`remote.status()` 为保留的服务契约面。
 
