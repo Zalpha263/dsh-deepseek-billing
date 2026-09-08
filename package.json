@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepseek-billing",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "DeepSeek 峰谷计费插件（梁文峰/梁文谷）：实时判定高峰/闲时段并按官方价表计价当前会话（含子代理），挂载到 ui-beautify 插件面板。",
   "type": "module",
   "main": "lib/index.js",
@@ -28,6 +28,14 @@
     "peak-valley",
     "plugin"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zalpha263/dsh-deepseek-billing.git"
+  },
+  "homepage": "https://github.com/Zalpha263/dsh-deepseek-billing#readme",
+  "bugs": {
+    "url": "https://github.com/Zalpha263/dsh-deepseek-billing/issues"
+  },
   "license": "MIT",
   "files": [
     "lib",

@@ -10,7 +10,7 @@
 - **费用计费**：逐事件按官方价表计价（输入未命中 / 缓存命中 / 输出含推理），人民币默认、可切换美元（汇率在线刷新 + 手动 + 默认 7.16）；
 - **当前窗口**：当前会话 + 其子代理会话树（含已结束子代理，持久化日志聚合），Token 明细与总消耗；
 - **手动价格覆盖**：官方改价时在面板「价格配置」里改即可（localStorage 持久化，可一键恢复官方内置价表）；
-- **别名通道管理**：v0.1.20 起内置的代理别名（ECNU 等）可在「价格配置 → 别名通道」里**覆盖 / 添加 / 移除**（含移除内置行、恢复内置），映射立即生效并持久化，替代原先只能写死在内置表的行为；
+- **窄宽度自适应**：右侧面板被挤压时不再溢出卡片——卡片/文本全部 `overflow:hidden` + 省略号，并用容器查询（`@container`，与宿主面板同款策略）在宽度不足时逐级**遮挡**次要内容（≤320px 收紧内边距与换档提示字号、≤250px 隐藏脚注并缩小金额、≤190px 隐藏倒计时并让表单换行；**换档时间提示任何宽度都保留**）；
 - **数据真源可见**：价表日期与"是否已手动覆盖"由宿主单一真源报告（`meta.priceAsOf` / `priceSource`），页脚如实显示「内置官方 <日期>（已手动覆盖）」；
 - **降级可用**：未安装 ui-beautify 时 console 提示等待 dock 服务，不影响其余插件。
 
@@ -35,8 +35,7 @@ dsh plugin --profile web add github:Zalpha263/dsh-deepseek-billing#<完整40位c
 | 状态卡 | 倒计时 | 距下一换档 HH:MM:SS |
 | 费用卡 | 总额 | 本次窗口费用（人民币/美元切换） |
 | 明细卡 | Token 表 | 缓存命中 / 未命中 / 输出(含推理) / 推理 / 总消耗 |
-| 价格配置 | 表单 | 三个模型 × 三项闲时价（高峰价 = 闲时价 × `PEAK_MULTIPLIER`，单一真源），可恢复官方 |
-| 价格配置 | 别名通道 | 代理模型 → 官方模型映射：覆盖 / 添加 / 移除 / 恢复内置，持久化 |
+| 价格配置 | 表单 | 四个模型 × 三项闲时价（高峰价 = 闲时价 × `PEAK_MULTIPLIER`，单一真源），可恢复官方 |
 
 ## 计费规则（内置，2026-09-03）
 
@@ -49,19 +48,23 @@ dsh plugin --profile web add github:Zalpha263/dsh-deepseek-billing#<完整40位c
 | deepseek-v4-flash | 0.05 / 0.10 | 1.5 / 3.0 | 4.5 / 9.0 |
 | deepseek-v4-pro | 0.15 / 0.30 | 4.5 / 9.0 | 13.5 / 27.0 |
 | deepseek-v4-flash-vision-exp | 0.05 / 0.10 | 1.5 / 3.0 | 4.5 / 9.0 |
+| deepseek-v4.1-flash-expires-on-0910 | 0.05 / 0.10 | 1.5 / 3.0 | 4.5 / 9.0 |
+
+> `deepseek-v4.1-flash-expires-on-0910` 为 0910 试验版模型（当前 agent 默认模型），无独立官方价页，按 V4 Flash 价表计。
 
 - 推理 tokens 按输出价（outputTokens 全额）计费；官方价表无独立缓存写入项；
 - 2026-08-17 之前的事件无峰谷价可比，计 0 并计入「未计价」提示；非 DeepSeek 模型调用不计价。
 
 ## 开发者
 
-- `lib/index.js`：Host 半区（`deepseekBilling` Remote 服务：summary / status / setPrices / setRate / setAlias），引擎与 `dsh-deepseek-billing` 动态预览版同源；
+- `lib/index.js`：Host 半区（`deepseekBilling` Remote 服务：summary / status / setPrices / setRate），引擎与 `dsh-deepseek-billing` 动态预览版同源；
 - `lib/client.js`：Client 半区（手写 `__ModuleLoader__.load` 格式，**纯 DOM** 构建 + dock 面板挂载 + localStorage 持久化；v0.1.6 起不再使用 React root 写宿主容器）；
-- 价格/规则常量在 `lib/index.js` 顶部（`OFFICIAL` 谷时价 + `PEAK_MULTIPLIER` 峰值系数 + `PRICE_AS_OF` 数据日期，改价时只改这三处），改完重启 DSH（Host 变更）或硬刷新（Client 变更）即可生效。
+- 价格/规则常量在 `lib/index.js` 顶部（`OFFICIAL` 谷时价 + `PEAK_MULTIPLIER` 峰值系数 + `PRICE_AS_OF` 数据日期，改价时只改这三处）。生效方式：**Client 变更**由 `dsh-client-hmr`（Web 端常挂）轮询 bundle 重哈希后自动热重载，必要时硬刷新（Ctrl+F5）兜底；**Host 变更**必须重启 DSH——Node 的 ESM 模块缓存不随文件变化失效，重启前旧代码仍在运行。
 
 ## 版本历史（最新在前）
 
-- **v0.1.20**：数据真源与别名通道加固——① **覆盖率显示修复**：原始 `meta.priceSource` 恒为常量，客户端「（已手动覆盖）」分支永不触发；现由宿主按「是否存在手动覆盖」真实计算 `manual | official`，页脚如实显示覆盖状态；② **价表日期单一真源**：客户端不再硬编码「2026-09-03」，改读 `meta.priceAsOf`（配套 `PRICE_AS_OF` 常量，改价时仅需更新宿主常量）；③ **峰值系数单一真源**：官方价表去掉硬编码的峰值价二元组，只存谷时价，峰值统一按 `PEAK_MULTIPLIER`（当前 2）计算，与界面「高峰价 = 闲时价 × 2」宣示口径共用同一常数，消除双处漂移；④ **别名通道可配置化**：内置 ECNU 别名保留为默认，新增 `setAlias` 远程方法（覆盖 / 添加 / 移除 / 重置，含自环拒绝与别名级联解析），`summary` 返回 `meta.aliases` 合并视图；客户端「价格配置」新增别名通道区块（逐行保存 / 移除 / 删除、添加行、恢复内置），别名覆盖随 prices/rate 一同 localStorage 持久化并在启动时重灌；⑤ 主机 `aliased` 统计、模型明细标签统一走新解析路径（`resolveAlias`），行为与旧逻辑一致。
+- **v0.1.21**：界面收缩与瘦身——① **窄宽度溢出修复**：此前卡片没有 `overflow` 约束、行内文本没有 `min-width:0`，右侧面板被挤压时内容会画到卡片外；现卡片/文本全部 `overflow:hidden` + 省略号，并按宿主面板同款策略加容器查询（`@container pvcst`）在宽度不足时逐级遮挡次要内容（≤320px 收紧内边距、换档提示降到 11px 但**始终保留**、徽章不再缩小；≤250px 隐藏脚注并缩小倒计时/金额，明细行再降半档；≤190px 隐藏倒计时、表单换行、输入框占满行）；② **删除别名通道**：移除「价格配置 → 别名通道」UI、`setAlias` 远程方法与描述符、客户端 localStorage 别名持久化、宿主内置别名表（`ecnu-max`/`ecnu-image`）与 `aliased` 统计、`summary.meta.aliases`——本插件只对官方模型 ID 计价，代理/别名模型统一按「未识别模型不计价」提示；旧 localStorage 的 `aliases` 键在启动时自动清理；③ **字号收敛（修正后回摆到 12/12.5）**：手动价格覆盖表单（标题/模型名 →12.5、行标签 →11.5、输入框 →11.5、宽 64→56、高 30→26）与 Token 明细（标签 →12、数值 →12.5、总消耗 →13）统一缩小；早前一轮 12→11 的调整因下述 ⑤ 的内联样式缺陷并未真正生效，修好 ⑤ 后先落到 11px 偏小，再回摆到 12/12.5 档；④ **价表补齐**：新增 `deepseek-v4.1-flash-expires-on-0910`（0910 试验版，当前 agent 默认模型，无独立官方价页，按 V4 Flash 价计），此前该模型的所有调用都归入「未识别模型不计价」，面板恒显示 ¥0；⑤ **内联数值样式修复（根因）**：`h()` 用 `Object.assign(el.style, …)` 写内联样式，而 CSSOM 把数值 `11` 转成无单位的 `"11"`（非法长度）后**静默丢弃**——插件里所有数值型内联样式（`fontSize`/`marginTop`/`width`…）从未生效，Token 明细行因此拿不到 11px、继承宿主容器的 16px（比 13px 的标题还大，正是用户反馈的「这块字太大」）。现 `h()` 对非无单位属性补 `px`（`flex`/`fontWeight`/`lineHeight`/`opacity` 等保持无单位），并把明细行字号改由 CSS 类控制（`.pvcst-rowlabel` 12px / `.pvcst-rowval` 12.5px / `.pvcst-strong` 13px，≤250px 再降半档），同时给 `.pvcst-body` 设 12px 基准字号兜底。
+- **v0.1.20**：数据真源与别名通道加固——① **覆盖率显示修复**：原始 `meta.priceSource` 恒为常量，客户端「（已手动覆盖）」分支永不触发；现由宿主按「是否存在手动覆盖」真实计算 `manual | official`，页脚如实显示覆盖状态；② **价表日期单一真源**：客户端不再硬编码「2026-09-03」，改读 `meta.priceAsOf`（配套 `PRICE_AS_OF` 常量，改价时仅需更新宿主常量）；③ **峰值系数单一真源**：官方价表去掉硬编码的峰值价二元组，只存谷时价，峰值统一按 `PEAK_MULTIPLIER`（当前 2）计算，与界面「高峰价 = 闲时价 × 2」宣示口径共用同一常数，消除双处漂移；④ **别名通道可配置化**（v0.1.21 已删除）：内置 ECNU 别名保留为默认，新增 `setAlias` 远程方法（覆盖 / 添加 / 移除 / 重置，含自环拒绝与别名级联解析），`summary` 返回 `meta.aliases` 合并视图；客户端「价格配置」新增别名通道区块（逐行保存 / 移除 / 删除、添加行、恢复内置），别名覆盖随 prices/rate 一同 localStorage 持久化并在启动时重灌；⑤ 主机 `aliased` 统计、模型明细标签统一走新解析路径（`resolveAlias`），行为与旧逻辑一致。
 - **v0.1.19**：修复历史/冷会话计费——① **增量折叠自愈**：`scanSession` 由"全量扫一次即永久栅栏"改为按游标增量、每次 poll/刷新核对到日志尾部（折叠对 (turn,step) 幂等，故与事件监听重叠安全），根除"只计开头、刷新没用、监听遗漏后永不再计"类问题；② **模型归因加固**：实测 `request/context` 每会话仅 1 条，现以最近一条 `request/header` 的 `header.config.model` 优先归因（`request/context` 兜底），多模型或压缩后缺上下文事件的会话也能正确计价；③ **会话身份显式化**：客户端恒传当前 `sessionId`（未打开会话为 null），主机不再静默聚合"最近活动会话"、返回 `empty` 占位，面板显示"等待会话…"——杜绝打开历史会话时面板聚合到别的会话；④ 新增 `summary(debug)` 诊断字段（rootOrigin/事件计数/归因模型/错误轨迹，控制台输出）。子代理计数、峰谷判定、别名通道、手动覆盖、汇率全部保留；用真实日志回归（1265 计价步 / 447.6M 命中 tokens，含"隐藏 request/context"与"增量+重扫"两组用例）通过。
 - **v0.1.18**：适配 DSH 0.1.2-rc.1 + 别名通道 + 审计加固——① **崩溃级修复**：v0.1.18 早期版本的 `offRow` 在模型无手动覆盖（常态）时对 `undefined` 访问 `ov[bucket]` 抛 TypeError，导致所有官方价计价路径崩溃、面板「加载失败」（已加 `ov === undefined` 守卫与五组回归用例）；② **别名通道**：ECNU 代理模型（`ecnu-max`/`ecnu-image`）按对应 DeepSeek 官方价计价，模型明细标注「经别名通道」；③ 会话事件读取改为 `session.snapshotEvents()`（0.1.2 的按需读取 API，旧 `session.events` 恒 undefined 导致历史会话账目为 0），无冷会话时回退持久化日志；④ 非 DeepSeek 模型明细（按模型名×次数）与「已按对应模型计价」提示；⑤ 删除死代码（`periodCny` 无人消费且语义错误、不可达的「防御补扫」分支、`cursor` 死状态）；`defaultRootId` 两段重复循环合并；⑥ 客户端硬化：token 格式化防 `undefined`、币种 localStorage 脏值校验、汇率回退 7.16（原 `||0` 会除零）；⑦ `dsh.client.inject` 幽灵条目清理、peer 升至 `^0.1.2-rc.1`。遗留：价格配置表单打开时显示官方默认价而非生效覆盖值（既有行为）；`remote.status()` 为保留的服务契约面。
 
