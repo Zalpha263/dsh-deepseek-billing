@@ -79,6 +79,9 @@ dsh plugin --profile web remove dsh-deepseek-billing
 
 ## 更新日志
 
+### v0.1.29
+- 修复：DSH 0.1.7 的 Typert codec 契约变更（strict codec 必须带 `create()` 工厂，运行时调用 `codec.create().parse(value)`）。原 `codec.schema` 写法导致 `ctx.remote.$mount()` 失败、计费面板取不到数据。`strictCodec()` 改为提供 `create`。peer 对齐 `^0.1.7-alpha.2`。
+
 ### v0.1.28
 - 适配 DSH 0.1.5-rc.2 的持久化接口（`readFrom()` 已移除、`list()` 返回 `{header, revision}` 快照），恢复子代理 / 冷会话计费；修复改价后子代理账目沿用旧价；修复清空价格输入框不会清掉宿主覆盖值；peer 对齐 `^0.1.5-rc.2`。
 
