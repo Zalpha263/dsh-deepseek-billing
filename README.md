@@ -79,6 +79,10 @@ dsh plugin --profile web remove dsh-deepseek-billing
 
 ## 更新日志
 
+### v0.1.30
+- 迁移：对齐 DSH `0.1.7-rc.1`（自 `0.1.7-alpha.2`）。本插件用到的 host 服务 `llm` / `sessions` / `sessionPersistence` / `sessionQuery` 与 `@deepseek-ai/dsh-typert-protocol` 的 Remote 契约在 `alpha.2 → rc.1` 之间**逐字节未变**；`@deepseek-ai/dsh-llm` 唯一的改动是 typert 类型声明表里移除了 `team-message` 成员（本插件不引用）。无需改代码，peer 对齐 `^0.1.7-rc.1`。
+- 验证：隔离 `DSH_HOME` 冷启动 rc.1 → 模块已注册、客户端产物 HTTP 200 且含 `__ModuleLoader__.load`；`node --check` 通过。
+
 ### v0.1.29
 - 修复：DSH 0.1.7 的 Typert codec 契约变更（strict codec 必须带 `create()` 工厂，运行时调用 `codec.create().parse(value)`）。原 `codec.schema` 写法导致 `ctx.remote.$mount()` 失败、计费面板取不到数据。`strictCodec()` 改为提供 `create`。peer 对齐 `^0.1.7-alpha.2`。
 
