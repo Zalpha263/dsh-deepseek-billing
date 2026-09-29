@@ -9,7 +9,7 @@ DeepSeek 峰谷计费插件（梁文峰 / 梁文谷）：实时判断当前是�
 - **价格维护**：官方调价不用改代码，在「价格配置」里直接改。每个模型族六个独立输入框（高峰 / 闲时 × 未命中输入 / 缓存命中输入 / 输出），**留空 = 用内置价**；「清空手动值」整体回到内置价表。页脚会如实显示当前用的是「内置官方 <日期>」还是「已手动覆盖」。
 - **模型名容错**：匹配按族前缀进行，DSH 换新模型名（日期后缀、新变体）会自动继承该族价格；完全没见过的族，页脚会点名提示去补价，而不是悄悄算 0。
 - **窄宽度自适应**：面板被挤窄时依次收紧内边距、隐藏脚注、缩写金额、让表单换行——宽度不足 320px 换档提示也始终保留。
-- **降级可用**：ui-beautify 是可选的。装了就是官方右侧栏里的一个标签页；没装则会话标题栏出现「💰 计费」按钮，点开是可拖动、可缩放的浮动卡片，内容完全一致。两者不会同时出现，装上 / 卸载 ui-beautify 时入口自动切换。
+- **入口固定**：v0.2.0 起本插件直接注册进 **DSH 官方右侧栏**（`sidebarRightTabs` + `sidebar.right.pane.tab` 槽位），**与 ui-beautify 是否安装无关**——ui-beautify 不再是必需项，也不再有任何标题栏按钮或自带浮动卡。标签条、浮动、分屏、每会话状态全部由官方右侧栏负责。
 
 ## 面板说明
 
@@ -57,7 +57,7 @@ dsh plugin --profile web add D:/path/to/dsh-deepseek-billing
 dsh plugin --profile web remove dsh-deepseek-billing
 ```
 
-装完**重启 DSH**（Host 半区需要加载），然后在官方右侧栏里选择「💰 峰谷计费」标签；没装 ui-beautify 时改用会话标题栏的「💰 计费」按钮。Host 改动重启 DSH，Client 改动刷新页面即可。
+装完**重启 DSH**（Host 半区需要加载），然后在官方右侧栏里选择「💰 峰谷计费」标签，或从右侧栏「开始」页的入口胶囊点开（order 110）。**不再有会话标题栏按钮。** Host 改动重启 DSH，Client 改动刷新页面即可。
 
 **桌面版（DeepSeek Harness 桌面应用）**：`desktop` profile 由桌面应用独占，`dsh plugin --profile desktop ...` 会被 CLI 直接拒绝（`profile "desktop" is managed exclusively by the Electron application`）。请在桌面应用侧边栏的**插件**页里用**绝对路径**添加本插件目录（或 GitHub 仓库地址），装完重启应用生效。桌面应用自带 Node / pnpm 运行时并走应用内更新（不依赖 npm 全局安装），它的 DSH 版本可能与全局 CLI 不同（实测桌面 `0.2.0-rc.1`、全局 CLI `0.1.7-rc.2`），本插件对两者都通过兼容检查。
 
@@ -69,17 +69,24 @@ dsh plugin --profile web remove dsh-deepseek-billing
 | 改了价格但数字没变 | 保存后下一次轮询就会刷新；若仍是旧值，确认保存成功（页脚会显示「已手动覆盖」） |
 | 子代理的费用没算进来 | 已结束的子代理通过持久化日志计入；若仍为 0，看看面板的 `summary(debug)` 诊断行 |
 | 想整体恢复内置价 | 点「清空手动值」 |
-| 面板不见了 | 没装 ui-beautify 时看会话标题栏的「💰 计费」按钮；装了就进官方右侧栏标签页 |
+| 面板不见了 | 右侧栏「开始」页的入口胶囊（或标签条的 `+`）里选「峰谷计费」；整个右侧栏被收起时先展开它 |
 
 ## 开发者
 
 - `lib/index.js` —— Host 半区，注册 `deepseekBilling` 远程服务（`summary` / `status` / `setPrices` / `setRate`）。
-- `lib/client.js` —— Client 半区，手写 `__ModuleLoader__.load` 格式，纯 DOM 构建面板并注册成官方右侧栏标签页（经 `sidebarPanel`；未装 ui-beautify 时退回自带浮动卡）。
+- `lib/client.js` —— Client 半区，手写 `__ModuleLoader__.load` 格式；纯 DOM 构建面板，用官方 `ctx.sidebarRightTabs.register({ id, kind, title, guide, priority })` + `ctx.slots.register({ name: 'sidebar.right.pane.tab', key: id }, Body)` 注册成官方右侧栏标签页（正文先行、类型后行；正文注册自己兜异常，槽位缺失时不留半注册）。
 - `cordis.patch.yml` —— bundle 层注册行。
 
 价格与规则常量集中在 `lib/index.js` 顶部：`FAMILIES`（模型族 + 闲时价）、`PEAK_MULTIPLIER`（峰值系数）、`PRICE_AS_OF`（价表日期），改价只需动这三处；价表是**单一真源**，客户端不带副本。Client 改动由 `dsh-client-hmr` 自动热重载（必要时 Ctrl+F5），Host 改动必须重启 DSH。
 
 ## 更新日志
+
+### v0.2.0
+- **改造：只走官方右侧栏链路，删除 ui-beautify 依赖与标题栏降级入口**。此前面板注册在 ui-beautify 提供的 `sidebarPanel` 服务上，因此**关掉 / 卸载 ui-beautify 后本插件没有任何右侧栏入口**，只剩会话标题栏的「💰 计费」浮动卡片。现在直接调官方服务：`ctx.sidebarRightTabs.register({ id, kind, priority: 'extension', title, guide })` + `ctx.slots.register({ name: 'sidebar.right.pane.tab', key: id }, Body)`（可选标题槽位 `sidebar.right.pane.tab.title`）。这两个服务由 `@deepseek-ai/dsh-web-app` 的 `ui-sidebar-right` 行提供，每个 web / 桌面 profile 都有，**与 ui-beautify 无关**。
+- 删除：ui-beautify 可选依赖（`ctx.inject(['sidebarPanel'])` + `internal/service` 事件 + 1s 兜底轮询的幂等绑定器）、独立浮动卡（拖动 / 缩放 / 位置记忆）、会话标题栏「💰 计费」入口及其 CSS。
+- 健壮性：正文槽位注册自己 try/catch —— 槽位未声明时放弃注册并返回，不再让异常冒泡出 `ctx.effect` 中断整个 `apply`（否则后半段的会话探测也会丢）。
+- 标签正文里不再渲染面板自带的「×」（关闭交给官方标签条）。
+- 验证：官方服务桩契约 harness（注册形状 / 失败路径 / 拆卸三个注册）+ 真实 `0.2.0-rc.1` 宿主**移除 ui-beautify 后**的加载实测。
 
 ### v0.1.31
 - **适配桌面版**：peer 由 `^0.1.7-rc.1` 放宽为 **`>=0.1.7-rc.1 <0.3.0`**。桌面应用跑 DSH `0.2.0-rc.1`，旧范围上界 `<0.2.0-0` 不含它，而应用自有 profile 对 peer 不兼容的 bundle **静默跳过、不报错**，现象就是「右侧栏计费标签页不见了」。放宽后同时覆盖 web 宿主 `0.1.7-rc.2` 与桌面 `0.2.0-rc.1`。
