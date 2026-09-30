@@ -81,6 +81,11 @@ dsh plugin --profile web remove dsh-deepseek-billing
 
 ## 更新日志
 
+### v0.2.1
+- **修复（桌面端右侧栏没有任何入口）**：v0.2.0 在 `apply` 时**一次性** `ctx.get("sidebarRightTabs")`，取不到就 `return`；而客户端各 entry 的 `apply` 顺序/并发**并不保证**，服务本身与 `sidebar.right.pane.tab` 槽位（由 `ui-sidebar-right` 自己 `slots.inject` 声明）都可能晚一拍出现 —— 注册被静默丢弃，右侧栏「开始」页再也不出现本插件胶囊。实测桌面端 `0.2.0-rc.2` 即如此；`0.2.0-rc.1` 的加载实测能过，说明这是时序敏感的偶发路径（我逐行比对过 rc.1 与 rc.2 的 `dsh-client-ui-sidebar-right`，`register()` 校验完全相同，不是 API 变更）。
+- 现在：`ctx.inject(["sidebarRightTabs"], …)` **依赖驱动** + **有界重试**（0/50/120/300/700/1200/2000/3000/5000/8000 ms）+ **失败时打印一次可诊断的原因**（正文槽位、类型注册各自的失败原因分别记录，重试用尽才报一次）。
+- 验证：`node --check`；与 file-explorer 侧同一处修复对称。
+
 ### v0.2.0
 - **改造：只走官方右侧栏链路，删除 ui-beautify 依赖与标题栏降级入口**。此前面板注册在 ui-beautify 提供的 `sidebarPanel` 服务上，因此**关掉 / 卸载 ui-beautify 后本插件没有任何右侧栏入口**，只剩会话标题栏的「💰 计费」浮动卡片。现在直接调官方服务：`ctx.sidebarRightTabs.register({ id, kind, priority: 'extension', title, guide })` + `ctx.slots.register({ name: 'sidebar.right.pane.tab', key: id }, Body)`（可选标题槽位 `sidebar.right.pane.tab.title`）。这两个服务由 `@deepseek-ai/dsh-web-app` 的 `ui-sidebar-right` 行提供，每个 web / 桌面 profile 都有，**与 ui-beautify 无关**。
 - 删除：ui-beautify 可选依赖（`ctx.inject(['sidebarPanel'])` + `internal/service` 事件 + 1s 兜底轮询的幂等绑定器）、独立浮动卡（拖动 / 缩放 / 位置记忆）、会话标题栏「💰 计费」入口及其 CSS。
