@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DeepSeek Billing",
+    "description": "Official routes only: models follow the official catalog, prices are segmented by effective era, holidays count as off-peak, and the current session (subagents included) is priced in real time."
+  }
+}

@@ -1,13 +1,17 @@
 {
   "name": "dsh-deepseek-billing",
-  "version": "0.2.1",
-  "description": "DeepSeek 峰谷计费插件（梁文峰/梁文谷）：实时判定高峰/闲时段并按官方价表计价当前会话（含子代理），挂载为 DSH 官方右侧栏标签页。",
+  "version": "0.5.0",
+  "description": "DeepSeek 峰谷计费插件（梁文峰/梁文谷）：只对官方渠道计价，模型跟随官方目录，价格按生效纪元分段，含法定节假日谷时，实时计价当前会话（含子代理），挂载为 DSH 官方右侧栏标签页。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "scripts": {
+    "test": "node test/pricing.test.mjs && node test/client-smoke.test.mjs"
   },
   "dsh": {
     "client": {
@@ -18,7 +22,10 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-typert-protocol": ">=0.1.7-rc.1 <0.3.0"
+    "@deepseek-ai/dsh-typert-protocol": ">=0.2.0-rc.1 <0.3.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-typert-protocol": ">=0.2.0-rc.1 <0.3.0"
   },
   "keywords": [
     "dsh",
@@ -39,6 +46,8 @@
   "license": "MIT",
   "files": [
     "lib",
+    "locale",
+    "test",
     "README.md",
     "LICENSE",
     "cordis.patch.yml"
